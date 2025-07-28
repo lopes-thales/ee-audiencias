@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel de Audiências - Escritório Escola</title>
+    
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Custom Styles -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #F8F9FA; /* Light gray background */
+        }
+        /* Custom colors for Tailwind */
+        .bg-primary { background-color: #020659; }
+        .bg-secondary { background-color: #1F248C; }
+        .bg-accent { background-color: #5056BF; }
+        .bg-light-accent { background-color: #969BF2; }
+        .bg-super-light { background-color: #D1D3FF; }
+        .text-primary { color: #020659; }
+
+        /* Custom scrollbar for better aesthetics */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #969BF2;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #5056BF;
+        }
+
+        /* Style for table header to be sticky */
+        .sticky-header th {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body class="bg-[#D1D3FF] min-h-screen">
+
+    <div id="app" class="container mx-auto p-4 sm:p-6 md:p-8">
+        
+        <!-- Header -->
+        <header class="bg-primary text-white p-6 rounded-xl shadow-2xl mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold">Painel de Audiências</h1>
+            <p class="text-lg text-gray-300 mt-1">Escritório Escola</p>
+        </header>
+
+        <!-- Filters Section -->
+        <div class="bg-white p-6 rounded-xl shadow-lg mb-8">
+            <h2 class="text-2xl font-semibold text-primary mb-4 border-b-2 border-light-accent pb-2">Filtros</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <!-- Date Start Filter -->
+                <div>
+                    <label for="startDate" class="block text-sm font-medium text-gray-700 mb-1">Data de Início</label>
+                    <input type="date" id="startDate" class="w-full p-2 border border-gray-300 rounded-lg shadow-sm focus:ring-accent focus:border-accent">
+                </div>
+                <!-- Date End Filter -->
+                <div>
+                    <label for="endDate" class="block text-sm font-medium text-gray-700 mb-1">Data Final</label>
+                    <input type="date" id="endDate" class="w-full p-2 border border-gray-300 rounded-lg shadow-sm focus:ring-accent focus:border-accent">
+                </div>
+                <!-- Lawyer Filter -->
+                <div>
+                    <label for="advogadoFilter" class="block text-sm font-medium text-gray-700 mb-1">Advogado(a)</label>
+                    <select id="advogadoFilter" class="w-full p-2 border border-gray-300 rounded-lg shadow-sm focus:ring-accent focus:border-accent">
+                        <option value="">Todos</option>
+                    </select>
+                </div>
+                <!-- Clear Button -->
+                <div class="flex items-end">
+                    <button id="clearFilters" class="w-full bg-accent hover:bg-secondary text-white font-bold py-2 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105">
+                        Limpar Filtros
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Table Section -->
+        <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+             <!-- Loading and Error Messages -->
+            <div id="message-container" class="p-6 text-center"></div>
+
+            <div id="table-container" class="overflow-x-auto custom-scrollbar max-h-[60vh]">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-secondary text-white sticky-header">
+                        <tr>
+                            <!-- Defining table headers based on expected columns -->
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Data</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Hora</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Processo</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Vara</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Advogado(a)</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Link</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="audiencias-body" class="bg-white divide-y divide-gray-200">
+                        <!-- Rows will be inserted here by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+             <div id="rowCount" class="p-4 bg-gray-50 text-right text-sm font-medium text-gray-600 border-t">
+                Total de registros: 0
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- CONFIGURATION ---
+        const SHEET_ID = '1QaNMPCFHDBguqfte84bLM9RCP5J-E41aeOE1lpxj4kk';
+        const SHEET_NAME = 'audienciasApp';
+        
+        // Original Google Sheet URL
+        const G_SHEET_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${SHEET_NAME}`;
+        
+        // A CORS proxy is used to prevent network errors when running the file locally from a file:// URL
+        const PROXY_URL = 'https://api.allorigins.win/raw?url=';
+        const URL = PROXY_URL + encodeURIComponent(G_SHEET_URL);
+
+
+        // --- DOM ELEMENTS ---
+        const tableBody = document.getElementById('audiencias-body');
+        const messageContainer = document.getElementById('message-container');
+        const rowCountElement = document.getElementById('rowCount');
+        const advogadoFilter = document.getElementById('advogadoFilter');
+        const startDateFilter = document.getElementById('startDate');
+        const endDateFilter = document.getElementById('endDate');
+        const clearFiltersBtn = document.getElementById('clearFilters');
+
+        let allData = []; // To store the original dataset
+
+        // --- DATA FETCHING AND PARSING ---
+        async function fetchData() {
+            showMessage('Carregando dados da planilha...', 'loading');
+            try {
+                const response = await fetch(URL);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                let text = await response.text();
+                
+                // The response is JSONP. We need to extract the JSON part from the wrapper.
+                const jsonStringMatch = text.match(/google\.visualization\.Query\.setResponse\((.*)\)/s);
+                if (!jsonStringMatch || !jsonStringMatch[1]) {
+                    console.error("Não foi possível analisar a resposta JSONP. Resposta bruta:", text);
+                    throw new Error("Formato de resposta inesperado. A planilha está publicada corretamente?");
+                }
+                const jsonString = jsonStringMatch[1];
+                const data = JSON.parse(jsonString);
+
+                if (data.status === 'error') {
+                    // Handle errors reported by the Google API itself
+                    console.error('Google Sheets API Error:', data.errors);
+                    throw new Error(data.errors.map(e => e.detailed_message).join(', '));
+                }
+
+                if (!data.table || !data.table.rows) {
+                    throw new Error("Formato de dados inesperado da planilha.");
+                }
+
+                // Map the Google Sheets JSON to a more usable format
+                const headers = data.table.cols.map(col => col.label);
+                allData = data.table.rows
+                    .map(row => {
+                        const rowData = {};
+                        // Ensure we only process rows that have cells
+                        if (row.c) {
+                            row.c.forEach((cell, index) => {
+                                // Column indices: A=0, B=1, C=2, D=3, E=4, G=6, I=8
+                                const headerIndex = [0, 1, 2, 3, 4, 6, 8]; 
+                                if (headerIndex.includes(index)) {
+                                    let key;
+                                    switch (index) {
+                                        case 0: key = 'data'; break;
+                                        case 1: key = 'hora'; break;
+                                        case 2: key = 'processo'; break;
+                                        case 3: key = 'vara'; break;
+                                        case 4: key = 'advogado'; break;
+                                        case 6: key = 'link'; break;
+                                        case 8: key = 'status'; break;
+                                    }
+                                    // Use 'f' (formatted value) if available, otherwise 'v' (raw value)
+                                    rowData[key] = cell ? (cell.f || cell.v) : '';
+                                }
+                            });
+                            // Only include rows that have some data
+                            return Object.values(rowData).some(val => val) ? rowData : null;
+                        }
+                        return null;
+                    }).filter(Boolean); // Filter out any null or empty rows
+
+                populateAdvogadoFilter(allData);
+                applyFilters();
+                clearMessage();
+
+            } catch (error) {
+                console.error('Erro ao buscar dados:', error);
+                showMessage('Falha ao carregar dados. Verifique se a planilha está "Publicada na web" (em Arquivo > Compartilhar > Publicar na web) e se sua conexão com a internet está ativa. Tente recarregar a página.', 'error');
+            }
+        }
+
+        // --- RENDERING AND UI ---
+        function renderTable(data) {
+            tableBody.innerHTML = ''; // Clear existing rows
+            
+            if (data.length === 0) {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td colspan="7" class="text-center py-10 px-6 text-gray-500">Nenhum registro encontrado para os filtros aplicados.</td>`;
+                tableBody.appendChild(tr);
+            } else {
+                data.forEach(item => {
+                    const tr = document.createElement('tr');
+                    tr.className = 'hover:bg-gray-50 transition-colors';
+                    tr.innerHTML = `
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">${item.data || ''}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${item.hora || ''}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${item.processo || ''}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${item.vara || ''}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">${item.advogado || ''}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-blue-600">
+                            ${item.link ? `<a href="${item.link}" target="_blank" class="hover:underline">Acessar Link</a>` : 'N/A'}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm">
+                            <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(item.status)}">
+                                ${item.status || ''}
+                            </span>
+                        </td>
+                    `;
+                    tableBody.appendChild(tr);
+                });
+            }
+            rowCountElement.textContent = `Total de registros: ${data.length}`;
+        }
+        
+        function getStatusColor(status) {
+            switch (status?.toLowerCase()) {
+                case 'realizada': return 'bg-green-100 text-green-800';
+                case 'não realizada': return 'bg-red-100 text-red-800';
+                case 'redesignada': return 'bg-yellow-100 text-yellow-800';
+                default: return 'bg-gray-100 text-gray-800';
+            }
+        }
+
+        function showMessage(text, type = 'loading') {
+            let bgColor, textColor, icon;
+            if (type === 'loading') {
+                bgColor = 'bg-blue-100';
+                textColor = 'text-blue-800';
+                icon = `<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-800" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
+            } else { // error
+                bgColor = 'bg-red-100';
+                textColor = 'text-red-800';
+                icon = ``;
+            }
+            messageContainer.innerHTML = `<div class="flex items-center justify-center ${bgColor} ${textColor} p-4 rounded-lg">${icon} ${text}</div>`;
+            messageContainer.classList.remove('hidden');
+            document.getElementById('table-container').classList.add('hidden');
+            document.getElementById('rowCount').classList.add('hidden');
+        }
+
+        function clearMessage() {
+            messageContainer.innerHTML = '';
+            messageContainer.classList.add('hidden');
+            document.getElementById('table-container').classList.remove('hidden');
+            document.getElementById('rowCount').classList.remove('hidden');
+        }
+
+        function populateAdvogadoFilter(data) {
+            const advogados = [...new Set(data.map(item => item.advogado).filter(Boolean))];
+            advogados.sort();
+            advogados.forEach(adv => {
+                const option = document.createElement('option');
+                option.value = adv;
+                option.textContent = adv;
+                advogadoFilter.appendChild(option);
+            });
+        }
+
+        // --- FILTERING LOGIC ---
+        function applyFilters() {
+            const advogado = advogadoFilter.value;
+            const startDate = startDateFilter.value;
+            const endDate = endDateFilter.value;
+
+            let filteredData = allData.filter(item => {
+                // Lawyer filter
+                if (advogado && item.advogado !== advogado) {
+                    return false;
+                }
+
+                // Date filter
+                if (startDate || endDate) {
+                    // Helper to parse DD/MM/YYYY dates
+                    const parseDate = (dateString) => {
+                        if (!dateString || typeof dateString !== 'string') return null;
+                        const parts = dateString.split('/');
+                        if (parts.length === 3) {
+                            // new Date(year, monthIndex, day)
+                            return new Date(parts[2], parts[1] - 1, parts[0]);
+                        }
+                        return null;
+                    }
+                    
+                    const itemDate = parseDate(item.data);
+                    if (!itemDate) return false; // Skip if date is invalid
+
+                    if (startDate && itemDate < new Date(startDate+'T00:00:00')) {
+                        return false;
+                    }
+                    if (endDate && itemDate > new Date(endDate+'T23:59:59')) {
+                        return false;
+                    }
+                }
+                
+                return true;
+            });
+
+            renderTable(filteredData);
+        }
+
+        function clearAllFilters() {
+            advogadoFilter.value = '';
+            startDateFilter.value = '';
+            endDateFilter.value = '';
+            applyFilters();
+        }
+
+        // --- EVENT LISTENERS ---
+        document.addEventListener('DOMContentLoaded', fetchData);
+        advogadoFilter.addEventListener('change', applyFilters);
+        startDateFilter.addEventListener('change', applyFilters);
+        endDateFilter.addEventListener('change', applyFilters);
+        clearFiltersBtn.addEventListener('click', clearAllFilters);
+
+    </script>
+</body>
+</html>
